@@ -1,587 +1,763 @@
-# 🤖👀 Autonums Pathfinding Rover
+# 🤖 Autonomous Sensor-Fusion Rover
 
-A smart obstacle-avoiding rover built with an **Arduino Nano**, **Arduino Uno**, **HC-SR04 ultrasonic sensor**, **L298N motor driver**, DC motors, and a **TFT display used as the rover's animated eyes**.
+A smart autonomous rover based on **Arduino Nano** that combines GPS, compass, IMU sensors, ultrasonic obstacle detection, and motor control.
 
-The **Arduino Nano controls the rover movement**, while the **Arduino Uno controls the TFT eyes**, giving the rover a robot-like face and expressions.
+The rover is designed to continue operating even when the GPS signal becomes weak or completely unavailable.
 
 ---
 
-# 🚗 Project Overview
+## 🚀 Main Features
 
-The rover has two main control systems:
+* 📍 GPS waypoint navigation
+* 🛰️ GPS-loss autonomous fallback
+* 🧭 Compass-based heading control
+* 🌀 MPU6050 rotation and tilt detection
+* 📐 ADXL345 acceleration and movement detection
+* 📏 HC-SR04 obstacle detection
+* 🧠 Temporary obstacle-direction memory
+* 🔄 Automatic alternate-direction selection
+* 🛑 Severe tilt / rollover protection
+* 🚗 Automatic movement verification
+* 🔧 L298N motor control
+* 🔌 Works with ENA and ENB jumpers ON
+* 🔁 Automatically resumes GPS navigation when GPS returns
+
+---
+
+# 🧠 System Concept
+
+The rover does not depend on a single sensor.
+
+All sensors work together continuously.
 
 ```text
-                    🤖 EYE ROVER
-                         │
-             ┌───────────┴───────────┐
-             │                       │
-       Arduino Nano             Arduino Uno
-       Rover Controller          Eye Controller
-             │                       │
-       ┌─────┴─────┐                 │
-       │           │                 ▼
-    HC-SR04      L298N          TFT DISPLAY
-       │           │                 👀
-       │        Motors
-       │
-   Obstacle
-   Detection
+                    GPS
+                     │
+              Position / Waypoint
+                     │
+                     ▼
+             ┌───────────────┐
+             │  NAVIGATION   │
+             │    SYSTEM     │
+             └───────┬───────┘
+                     │
+       ┌─────────────┼─────────────┐
+       ▼             ▼             ▼
+   COMPASS       MPU6050        ADXL345
+   Heading        Rotation      Movement
+                  + Tilt        + Accel
+       │             │             │
+       └─────────────┼─────────────┘
+                     │
+                     ▼
+                  HC-SR04
+                 Obstacles
+                     │
+                     ▼
+              DECISION SYSTEM
+                     │
+                     ▼
+                   L298N
+                     │
+                     ▼
+                  MOTORS
 ```
 
 ---
 
-# 🔧 Hardware
+# 📡 GPS Navigation
 
-## Rover Control
+GPS provides the rover's geographical position.
 
-* Arduino Nano
-* HC-SR04 ultrasonic sensor
-* L298N motor driver
-* 2 × DC geared motors
-* 2 × wheels
-* Rover chassis
-* External motor battery
+It can be used for:
 
-## Eye System
-
-* Arduino Uno
-* TFT display
-* Jumper wires
-* Separate suitable power supply if required
-
----
-
-# 🧠 Arduino Nano — Rover Controller
-
-The Arduino Nano is responsible for:
-
-* Reading the HC-SR04
-* Detecting obstacles
-* Moving forward
-* Moving backward
-* Turning right
-* Turning left
-* Performing fast full turns
-* Checking the path again after turning
-
-The obstacle detection distance is:
-
-```text
-10 CM
-```
-
----
-
-# 👀 Arduino Uno — TFT Eyes
-
-The Arduino Uno controls the TFT display mounted on the front of the rover.
-
-The TFT acts as the rover's **eyes**.
-
-The eyes can be programmed to show different expressions depending on what the rover is doing.
-
-### Example expressions
-
-| Rover Action      | TFT Expression     |
-| ----------------- | ------------------ |
-| Starting          | 🤖 Normal eyes     |
-| Moving forward    | 👀 Looking forward |
-| Obstacle detected | 😮 Surprised eyes  |
-| Moving backward   | 😳 Alert eyes      |
-| Turning right     | 👀 Looking right   |
-| Turning left      | 👀 Looking left    |
-| Searching         | 👁️ Looking around |
-| Stopped           | 😐 Normal eyes     |
-
----
-
-# 👁️ Eye Animation
-
-The TFT eye system can contain smooth animations such as:
-
-```text
-NORMAL
-  👀
-
-BLINK
-  ── ──
-
-LOOK LEFT
-  ◉  ●
-
-LOOK RIGHT
-  ●  ◉
-
-SURPRISED
-  😮
-
-ANGRY
-  😡
-
-HAPPY
-  😊
-
-SLEEPY
-  😴
-```
-
-The eye animations are designed to make the rover look more like a **real interactive robot** rather than simply displaying static graphics.
-
----
-
-# 📌 Arduino Nano Pin Connections
-
-## HC-SR04
-
-| HC-SR04 | Arduino Nano |
-| ------- | ------------ |
-| VCC     | 5V           |
-| GND     | GND          |
-| TRIG    | D2           |
-| ECHO    | D3           |
-
-## L298N
-
-| L298N | Arduino Nano |
-| ----- | ------------ |
-| IN1   | D7           |
-| IN2   | D8           |
-| IN3   | D9           |
-| IN4   | D10          |
-| GND   | Nano GND     |
-
----
-
-# ⚙️ L298N Enable Jumpers
-
-This version keeps the L298N enable jumpers installed.
-
-```text
-ENA = Jumper ON
-ENB = Jumper ON
-```
-
-No PWM speed-control wiring is required.
-
-The rover uses full-power motor control for fast movement and pivot turns.
-
----
-
-# 🔌 Motor Connections
-
-The current motor configuration is:
-
-```text
-L298N OUT1 → Right motor -
-L298N OUT2 → Right motor +
-
-L298N OUT3 → Left motor +
-L298N OUT4 → Left motor -
-```
-
----
-
-# 🔋 Motor Power
-
-Use an external battery suitable for your motors and L298N.
-
-```text
-Battery + → L298N motor power +
-Battery - → L298N GND
-```
-
-The Arduino Nano and L298N must share GND:
-
-```text
-Nano GND
-   │
-   └──── L298N GND
-```
-
-Do not power the DC motors directly from the Arduino.
-
----
-
-# 📏 10 CM Obstacle Detection
-
-The rover uses **10 cm** as its obstacle threshold.
-
-```text
-Distance > 10 cm
-       ↓
-    FORWARD
-```
-
-When an obstacle reaches 10 cm or closer:
-
-```text
-Distance ≤ 10 cm
-       ↓
-      STOP
-       ↓
-    BACKWARD
-       ↓
-      STOP
-       ↓
- FULL RIGHT TURN
-       ↓
-     CHECK
-```
-
----
-
-# 🔄 Fast Full Right Turn
-
-The rover performs a pivot turn by running the motors in opposite directions.
-
-```text
-RIGHT MOTOR → BACKWARD
-LEFT MOTOR  → FORWARD
-```
-
-This produces a fast rotation:
-
-```text
-       ↺
-   ┌────────┐
-   │  ROVER │
-   └────────┘
-```
-
-The turn duration can be adjusted in the code.
+* Latitude
+* Longitude
+* Waypoints
+* Distance to destination
+* Direction toward destination
+* Geofencing
 
 Example:
 
-```cpp
-_delay_ms(480);
+```text
+GPS Position
+     ↓
+Current latitude/longitude
+     ↓
+Target latitude/longitude
+     ↓
+Calculate bearing
+     ↓
+Compass checks heading
+     ↓
+Rover turns
+     ↓
+Rover moves toward target
 ```
 
-Increase the value for a larger turn.
+## ⚠️ GPS Is Not Required
 
-Decrease the value for a smaller turn.
+The rover does **not** completely stop when GPS is lost.
+
+If GPS becomes weak or unavailable:
+
+```text
+GPS LOST
+   ↓
+Last reliable navigation information
+   +
+Compass
+   +
+MPU6050
+   +
+ADXL345
+   +
+HC-SR04
+   ↓
+Continue autonomous operation
+```
+
+When GPS becomes available again, the rover can resume GPS-based navigation.
 
 ---
 
-# 🔄 Emergency Left Turn
+# 🧭 Compass
 
-If the rover turns right but still detects an obstacle, it can perform a full left turn.
+The compass provides the rover's absolute heading.
+
+For example:
 
 ```text
-RIGHT MOTOR → FORWARD
-LEFT MOTOR  → BACKWARD
+0°   = North
+90°  = East
+180° = South
+270° = West
 ```
+
+The compass is used to:
+
+* Determine current direction
+* Follow a GPS bearing
+* Choose alternate directions
+* Remember obstacle directions
+* Prevent repeatedly returning toward blocked directions
+
+---
+
+# 🌀 MPU6050
+
+The MPU6050 contains:
+
+* 3-axis accelerometer
+* 3-axis gyroscope
+
+It is used for:
+
+* Rotation detection
+* Turn measurement
+* Tilt detection
+* Heading-change detection
+* Movement confirmation
+* Rover stability
+
+The gyroscope is especially useful while turning.
 
 Example:
 
-```cpp
-_delay_ms(600);
+```text
+START TURN
+    ↓
+MPU6050 measures rotation
+    ↓
+Compass checks heading
+    ↓
+Desired heading reached
+    ↓
+STOP TURN
 ```
 
 ---
 
-# ⚡ Fast Processing
+# 📐 ADXL345
 
-The Nano uses direct AVR register control for fast motor and sensor processing.
+The ADXL345 is a 3-axis accelerometer.
 
-The program uses:
+It is used for:
 
-```cpp
-#include <avr/io.h>
-#include <util/delay.h>
+* Acceleration detection
+* Bump detection
+* Movement confirmation
+* Tilt estimation
+* Sudden impact detection
+
+The ADXL345 works together with the MPU6050.
+
+```text
+ADXL345
+   +
+MPU6050
+   ↓
+Compare movement/tilt
+   ↓
+More reliable safety decision
 ```
 
-Instead of relying on functions such as:
+### Important
 
-```cpp
-pinMode()
-digitalWrite()
-delay()
-```
+The ADXL345 **cannot act as a true wheel odometer**.
 
-This keeps the control code lightweight and suitable for the custom mBlock C++ environment previously used for this project.
+Acceleration eventually returns close to zero when a rover moves at constant speed.
+
+Therefore, for highly reliable distance/movement measurement, wheel encoders are recommended.
 
 ---
 
-# 🤖 Rover Behavior
+# 📏 HC-SR04
 
-The complete rover behavior is:
+The HC-SR04 detects objects in front of the rover.
+
+Current obstacle threshold:
 
 ```text
-                START
-                  │
-                  ▼
-             TFT EYES ON
-                  │
-                  ▼
-           READ DISTANCE
-                  │
-                  ▼
-          Distance > 10cm?
-             /         \
-           YES          NO
-            │            │
-            ▼            ▼
-        👀 FORWARD     😮 ALERT
-            │            │
-            │            ▼
-            │          STOP
-            │            │
-            │            ▼
-            │        BACKWARD
-            │            │
-            │            ▼
-            │       TURN RIGHT
-            │            │
-            │            ▼
-            │         CHECK
-            │            │
-            │      ┌─────┴─────┐
-            │      │           │
-            │    CLEAR       BLOCKED
-            │      │           │
-            │      ▼           ▼
-            │   FORWARD     TURN LEFT
-            │                  │
-            └──────────────────┘
+10 cm
+```
+
+If an obstacle is detected within approximately 10 cm:
+
+```text
+STOP
+ ↓
+Remember obstacle heading
+ ↓
+Reverse
+ ↓
+Choose another heading
+ ↓
+Turn
+ ↓
+Check again
+ ↓
+Continue
 ```
 
 ---
 
-# 👀 TFT Eye States
+# 🧠 Obstacle Memory
 
-The TFT can display different eye states:
+The rover temporarily remembers directions where obstacles were detected.
 
-### Normal
+Example:
 
 ```text
-    👀
+Current heading = 90°
+
+HC-SR04 detects obstacle
+
+Remember:
+
+90° = BLOCKED
 ```
 
-Used while the rover is moving normally.
+The rover then selects another direction.
 
-### Obstacle
+Example:
 
 ```text
-    😮
+90°   → BLOCKED
+135°  → BLOCKED
+180°  → TRY
+270°  → CLEAR
 ```
 
-Used when the HC-SR04 detects an obstacle.
+This prevents the rover from repeatedly choosing the same blocked path.
 
-### Right Turn
+---
+
+# 🔄 Automatic Alternate Direction
+
+When an obstacle is detected:
 
 ```text
-    👀 →
+Obstacle
+   ↓
+Save current compass heading
+   ↓
+Check previously blocked headings
+   ↓
+Choose a new direction
+   ↓
+Turn using MPU6050 + compass
+   ↓
+Check HC-SR04
+   ↓
+Move
 ```
 
-The eyes look toward the direction of the turn.
-
-### Left Turn
+If the new direction is also blocked:
 
 ```text
-    ← 👀
-```
-
-### Backward
-
-```text
-    😳
-```
-
-### Idle
-
-```text
-    😐
+TRY DIRECTION 1
+       ↓
+   BLOCKED
+       ↓
+TRY DIRECTION 2
+       ↓
+   BLOCKED
+       ↓
+TRY DIRECTION 3
+       ↓
+   CLEAR
+       ↓
+CONTINUE
 ```
 
 ---
 
-# 🔄 Arduino Communication
+# 🚗 Movement Verification
 
-The Nano and Uno can communicate with each other.
+The rover also checks whether it appears to be moving after a motor command.
 
-The Nano can send simple commands such as:
+Example:
 
 ```text
-FORWARD
-OBSTACLE
-BACKWARD
-TURN_RIGHT
-TURN_LEFT
+MOTOR = FORWARD
+       ↓
+ADXL345 + MPU6050
+       ↓
+Movement detected?
+```
+
+### Movement detected
+
+```text
+YES
+ ↓
+Continue
+```
+
+### No significant movement
+
+```text
+NO
+ ↓
+Possible stuck condition
+ ↓
+STOP
+ ↓
+Remember current direction
+ ↓
+Choose another direction
+ ↓
+Try again
+```
+
+This feature works even without GPS.
+
+---
+
+# 🛑 Stability and Crash Protection
+
+The MPU6050 and ADXL345 continuously monitor rover tilt.
+
+The system uses both sensors rather than relying on only one.
+
+```text
+Small tilt
+    ↓
+Continue
+
+Medium tilt
+    ↓
+Monitor / stabilize movement
+
+Severe sustained tilt
+    ↓
+EMERGENCY STOP
+```
+
+The purpose is to prevent a small bump from being incorrectly treated as a crash.
+
+---
+
+# 🌊 Water / Lake / River Safety
+
+GPS can be used to create known danger zones.
+
+For example:
+
+```text
+Lake boundary
+     ↓
+GPS geofence
+     ↓
+Rover approaches boundary
+     ↓
 STOP
 ```
 
-The Uno receives the command and changes the TFT eyes.
+However, GPS cannot identify every unknown lake or river by itself.
 
-Example:
+For physical protection near water, additional downward/edge/water sensors are recommended.
 
-```text
-Nano                         Uno
- │                            │
- │──── "FORWARD" ────────────►│
- │                            │
- │                         👀 Normal
- │                            │
- │──── "OBSTACLE" ───────────►│
- │                            │
- │                         😮 Alert
- │                            │
- │──── "TURN_RIGHT" ─────────►│
- │                            │
- │                         👀 →
-```
-
----
-
-# ✨ Main Features
-
-* 🤖 Arduino Nano rover controller
-* 👀 Arduino Uno TFT eye controller
-* 📺 TFT animated robot eyes
-* 📡 Arduino-to-Arduino communication
-* 📏 10 cm obstacle detection
-* ⚡ Fast ultrasonic processing
-* 🚗 Automatic forward movement
-* 🔙 Automatic backward escape
-* 🔄 Fast full right turn
-* 🔄 Full left emergency turn
-* 👁️ Directional eye expressions
-* 😮 Obstacle expression
-* 😐 Idle expression
-* 🔋 External motor power
-* ⚙️ L298N motor driver
-* 🔌 ENA jumper ON
-* 🔌 ENB jumper ON
-
----
-
-# 🛠️ Tuning
-
-## Obstacle distance
-
-The current threshold is:
-
-```cpp
-10
-```
-
-This means:
+A safer system is:
 
 ```text
-≤ 10 cm = obstacle
-> 10 cm = clear
+GPS danger zone
+       +
+HC-SR04
+       +
+Tilt sensors
+       +
+Physical water/edge detection
+       ↓
+SAFETY DECISION
+       ↓
+STOP
 ```
-
-## Right turn
-
-Current value:
-
-```cpp
-_delay_ms(480);
-```
-
-## Left turn
-
-Current value:
-
-```cpp
-_delay_ms(600);
-```
-
-## Reverse
-
-Current value:
-
-```cpp
-_delay_ms(180);
-```
-
-These values can be adjusted according to the rover's wheels, motors, battery and floor.
 
 ---
 
-# ⚠️ Testing
+# 🔌 Hardware
 
-Before testing the complete rover:
+## Required
 
-1. Lift the rover so the wheels are off the ground.
-2. Test forward movement.
-3. Test backward movement.
-4. Test right turn.
-5. Test left turn.
-6. Test HC-SR04 detection.
-7. Test the TFT eyes.
-8. Finally place the rover on the floor.
+* Arduino Nano
+* GPS module
+* HMC5883L or QMC5883L compass
+* MPU6050
+* ADXL345
+* HC-SR04
+* L298N motor driver
+* 2 DC motors / rover chassis
+* Battery
+* Jumper wires
 
-Always keep the rover away from people, cables and objects that could get caught in the wheels.
+## Recommended Future Upgrade
+
+* 2 wheel encoders
+* Downward-facing distance sensors
+* Water detection sensors
+* Buzzer
+* Emergency-stop switch
 
 ---
 
-# 🚀 Project Goal
+# 🔧 Pin Configuration
 
-The goal of the Eye Rover is to combine:
+## Arduino Nano
+
+| Device       | Pin |
+| ------------ | --- |
+| HC-SR04 TRIG | D2  |
+| HC-SR04 ECHO | D3  |
+| GPS TX       | D4  |
+| L298N IN1    | D7  |
+| L298N IN2    | D8  |
+| L298N IN3    | D9  |
+| L298N IN4    | D10 |
+| I2C SDA      | A4  |
+| I2C SCL      | A5  |
+
+---
+
+# ⚙️ L298N Motor Wiring
 
 ```text
-ROBOTICS
-   +
-OBSTACLE AVOIDANCE
-   +
-ANIMATED TFT EYES
-   +
-AUTOMATIC MOVEMENT
+L298N OUT1 → Right motor negative
+L298N OUT2 → Right motor positive
+
+L298N OUT3 → Left motor positive
+L298N OUT4 → Left motor negative
 ```
 
-to create an interactive autonomous rover that **moves, detects obstacles, turns, and visually reacts through its TFT eyes**.
-
----
-
-# 📄 Project Specifications
-
-| Component         | Specification                |
-| ----------------- | ---------------------------- |
-| Main Controller   | Arduino Nano                 |
-| Eye Controller    | Arduino Uno                  |
-| Display           | TFT                          |
-| Distance Sensor   | HC-SR04                      |
-| Motor Driver      | L298N                        |
-| Motors            | 2 × DC motors                |
-| Obstacle Distance | 10 cm                        |
-| ENA Jumper        | ON                           |
-| ENB Jumper        | ON                           |
-| Turning           | Full-power pivot             |
-| Control Method    | AVR register based           |
-| Rover Type        | Autonomous obstacle avoiding |
-| Display Function  | Animated robot eyes          |
-
----
-
-# 🤖👀 Final
-
-**Eye Rover** is an autonomous Arduino rover with a TFT-based animated face.
-
-The Nano handles the **brain and movement**, while the Uno and TFT provide the **eyes and expressions**.
+Motor control:
 
 ```text
-       ┌─────────────────┐
-       │    TFT EYES     │
-       │      👀         │
-       └────────┬────────┘
+IN1 + IN2 → Right motor
+IN3 + IN4 → Left motor
+```
+
+### ENA / ENB
+
+The rover is designed with:
+
+```text
+ENA jumper = ON
+ENB jumper = ON
+```
+
+Therefore the rover does not use PWM speed control through ENA/ENB.
+
+Motor turns are performed using:
+
+* Forward
+* Reverse
+* Pivot right
+* Pivot left
+* Timed corrections
+* Compass/gyro-based heading control
+
+---
+
+# 🔗 I2C Bus
+
+The MPU6050, ADXL345, and compass can share the same I2C bus.
+
+```text
+Arduino Nano A4
+      │
+      ├── MPU6050 SDA
+      ├── ADXL345 SDA
+      └── Compass SDA
+
+Arduino Nano A5
+      │
+      ├── MPU6050 SCL
+      ├── ADXL345 SCL
+      └── Compass SCL
+```
+
+All devices share:
+
+```text
+GND → GND
+```
+
+Make sure the voltage requirements of your individual breakout boards are respected.
+
+---
+
+# 🧠 Sensor Priority
+
+The rover should prioritize decisions approximately like this:
+
+```text
+1. EMERGENCY / WATER / EDGE SAFETY
+             ↓
+2. SEVERE TILT / ROLLOVER
+             ↓
+3. HC-SR04 OBSTACLE
+             ↓
+4. STUCK / NO MOVEMENT
+             ↓
+5. GPS NAVIGATION
+             ↓
+6. COMPASS HEADING
+             ↓
+7. MPU6050 TURN CONTROL
+             ↓
+8. ADXL345 MOVEMENT CONFIRMATION
+             ↓
+9. MOTOR CONTROL
+```
+
+Safety conditions should always be able to override navigation.
+
+---
+
+# 🔁 Complete Decision Flow
+
+```text
+              START
                 │
-          Arduino Uno
+                ▼
+        Initialize sensors
                 │
-        ┌───────┴───────┐
-        │               │
-   Arduino Nano      Eye System
-        │
-   ┌────┴─────┐
-   │          │
-HC-SR04     L298N
-              │
-           🚗 Motors
+                ▼
+        Calibrate MPU6050
+                │
+                ▼
+          Read all sensors
+                │
+                ▼
+       ┌──────────────────┐
+       │ Severe tilt?     │
+       └───────┬──────────┘
+               │
+          YES  │  NO
+           ↓   │
+          STOP │
+               │
+               ▼
+       HC-SR04 obstacle?
+               │
+          ┌────┴────┐
+         YES        NO
+          │          │
+          ▼          ▼
+       Remember    GPS fix?
+       heading        │
+          │       ┌───┴───┐
+          │      YES     NO
+          │       │       │
+          │       ▼       ▼
+          │     GPS     Compass +
+          │   navigation MPU6050 +
+          │               ADXL345
+          │                 │
+          └──────┬──────────┘
+                 ▼
+          Check movement
+                 │
+          ┌──────┴──────┐
+         MOVING       STUCK
+            │             │
+            ▼             ▼
+         Continue      New heading
+                          │
+                          ▼
+                       Try again
 ```
 
-**Project:** Eye Rover
-**Obstacle Detection:** 10 cm
-**Turning:** Fast Full Pivot
-**Eyes:** TFT Animated Display
-**Main Controller:** Arduino Nano
-**Eye Controller:** Arduino Uno
+---
+
+# 🛰️ GPS + Sensor Fusion
+
+The goal is not:
+
+```text
+GPS → Rover
+```
+
+The goal is:
+
+```text
+GPS
+ +
+Compass
+ +
+MPU6050
+ +
+ADXL345
+ +
+HC-SR04
+ +
+Motor feedback
+ ↓
+Sensor Fusion
+ ↓
+Autonomous Decision
+ ↓
+Rover
+```
+
+This makes GPS an important navigation sensor without making it the **only thing keeping the rover operational**.
+
+---
+
+# 🚀 Future Improvements
+
+The rover can later be upgraded with:
+
+### 1. Wheel Encoders
+
+For accurate:
+
+* Distance traveled
+* Wheel movement
+* Stuck detection
+* Dead reckoning
+
+### 2. Better Obstacle Detection
+
+Add:
+
+* Front ultrasonic
+* Left ultrasonic
+* Right ultrasonic
+
+This allows the rover to compare all three directions before turning.
+
+### 3. Water Detection
+
+Add downward-facing:
+
+* Water sensor
+* IR/ToF distance sensor
+* Edge detector
+
+### 4. Better GPS
+
+Use a higher-quality GNSS module with:
+
+* More satellite systems
+* Better antenna
+* Faster fix
+* Better accuracy
+
+### 5. Sensor Fusion Position Estimation
+
+Eventually:
+
+```text
+GPS
+ +
+Compass
+ +
+MPU6050
+ +
+Wheel encoders
+ ↓
+Estimated position
+```
+
+The rover can then continue estimating its position during short GPS outages.
+
+---
+
+# ⚠️ Important Limitations
+
+This project is an autonomous rover prototype and should be tested in an open, safe area.
+
+Do not initially test it near:
+
+* Deep water
+* Roads
+* Cliffs
+* Dams
+* Moving traffic
+* People
+* Other dangerous areas
+
+GPS can have errors, and inexpensive compass/IMU sensors require calibration.
+
+The rover should always have a physical emergency-stop method.
+
+---
+
+# 📜 License
+
+This project is intended for educational and experimental robotics use.
+
+---
+
+# 🤖 Project Goal
+
+The final goal is to build a rover that can:
+
+```text
+Navigate
+   +
+Avoid obstacles
+   +
+Remember blocked directions
+   +
+Detect movement
+   +
+Detect abnormal tilt
+   +
+Use GPS when available
+   +
+Continue when GPS is unavailable
+   +
+Use compass for direction
+   +
+Use MPU6050 for rotation
+   +
+Use ADXL345 for movement/acceleration
+   +
+Protect itself near dangerous areas
+```
+
+**GPS should help the rover navigate — not be the only thing keeping the rover alive.**
